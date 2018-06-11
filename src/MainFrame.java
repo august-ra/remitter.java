@@ -1,20 +1,58 @@
+import Classes.*;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.*;
+import java.util.ArrayList;
 
 public class MainFrame extends JFrame {
     private JTextField txtFile1;
     private JButton    btnFile1;
     private JTextField txtFile2;
     private JButton    btnFile2;
-    private JComboBox<String> cmbType1;
-    private JComboBox<String> cmbType2;
+    private JComboBox<Languages> cmbType1;
+    private JComboBox<Languages> cmbType2;
     private TextArea txtText1;
     private TextArea txtText2;
     private JButton  btnStart;
 
     private final JFileChooser dialog = new JFileChooser();
+
+    // class of templates
+
+    String[][] keywords = new String[][] {
+            { // Java
+                "abstract", "assert", "boolean", "break", "byte", "case", "catch",
+                "char", "class", "const", "continue", "default", "do", "double",
+                "else", "enum", "extends", "false", "final", "finally", "for", "goto",
+                "if", "implements", "import", "instanceof", "int", "interface",
+                "long", "native", "new", "null", "package", "private", "protected",
+                "public", "return", "short", "static", "strictfp", "super", "switch",
+                "synchronized", "this", "throw", "throws", "transient", "true", "try",
+                "void", "volatile", "while"
+            },
+            { // Visual Basic for Applications
+                "#If", "#Else", "#ElseIf", "#EndIf", "#End If", "And", "Append", "As",
+                "Base", "Binary", "Boolean", "ByRef", "ByVal", "Call", "Case",
+                "CBool", "CByte", "CCur", "CDate", "CInt", "CLng", "Close", "Compare",
+                "Const", "CSng", "CStr", "CType", "Currency", "Database", "Date",
+                "Declare", "DefBool", "DefByte", "DefDate", "DefDec", "DefDouble",
+                "DefInt", "DefLng", "DefLngLng", "DefLngPtr", "DefObj", "DefStr",
+                "Dim", "Do", "Double", "Each", "Else", "ElseIf", "Empty", "End",
+                "EndIf", "Enum", "Eqv", "Error", "Event", "Exit", "Explicit", "False",
+                "For", "Friend", "Function", "Get", "GoTo", "If", "IIf", "Imp",
+                "Implements", "In", "Input", "Integer", "Is", "LBound", "Len", "Let",
+                "Lib", "Like", "Lock", "Long", "LongLong", "Loop", "LSet", "Me",
+                "Mid", "New", "Next", "Not", "Nothing", "Null", "Object", "On",
+                "Open", "Option", "Optional", "Or", "Output", "ParamArray",
+                "Preserve", "Print", "Private", "Property", "PrtSafe", "Public",
+                "Randomize", "ReDim", "Resume", "Return", "RSet", "Seek", "Select",
+                "Set", "Shared", "Single", "Static", "Step", "Stop", "String", "Sub",
+                "Text", "Then", "Time", "To", "True", "Type", "TypeOf", "UBound",
+                "Until", "Variant", "Wend", "While", "With", "WithEvents", "Xor"
+            }
+    };
 
     // this class
 
@@ -28,9 +66,9 @@ public class MainFrame extends JFrame {
     private MainFrame() {
         super("Remitter");
 
-        String[] codeTypes = new String[] {
-                "Java",
-                "Visual Basic for Applications"
+        Languages[] codeTypes = new Languages[] {
+                Languages.Java,
+                Languages.VBA
         };
 
         setLayout(new GridBagLayout());
@@ -38,6 +76,7 @@ public class MainFrame extends JFrame {
         c.fill = GridBagConstraints.BOTH;
 
         int row = 0;
+        int colW = 2;
 
         txtFile1 = new JTextField();
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -58,7 +97,7 @@ public class MainFrame extends JFrame {
         txtFile2 = new JTextField();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0.5;
-        c.gridx = 2;
+        c.gridx = colW;
         c.gridy = row;
         add(txtFile2, c);
 
@@ -67,7 +106,7 @@ public class MainFrame extends JFrame {
         btnFile2.addActionListener(this::selectFile);
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0.0;
-        c.gridx = 3;
+        c.gridx = colW + 1;
         c.gridy = row;
         add(btnFile2, c);
 
@@ -76,14 +115,14 @@ public class MainFrame extends JFrame {
         cmbType1 = new JComboBox<>(codeTypes);
         cmbType1.setSelectedIndex(0);
         cmbType1.addActionListener((ActionEvent e) -> {
-            if (cmbType1.getSelectedIndex() == 0)
-                cmbType2.setSelectedIndex(1);
+            if (cmbType1.getSelectedItem() == Languages.Java)
+                cmbType2.setSelectedItem(Languages.VBA);
             else
-                cmbType2.setSelectedIndex(0);
+                cmbType2.setSelectedItem(Languages.Java);
         });
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
-        c.gridwidth = 2;
+        c.gridwidth = colW;
         c.gridx = 0;
         c.gridy = row;
         add(cmbType1, c);
@@ -91,15 +130,15 @@ public class MainFrame extends JFrame {
         cmbType2 = new JComboBox<>(codeTypes);
         cmbType2.setSelectedIndex(1);
         cmbType2.addActionListener((ActionEvent e) -> {
-            if (cmbType2.getSelectedIndex() == 0)
-                cmbType1.setSelectedIndex(1);
+            if (cmbType2.getSelectedItem() == Languages.Java)
+                cmbType1.setSelectedItem(Languages.VBA);
             else
-                cmbType1.setSelectedIndex(0);
+                cmbType1.setSelectedItem(Languages.Java);
         });
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
-        c.gridwidth = 2;
-        c.gridx = 2;
+        c.gridwidth = colW;
+        c.gridx = colW;
         c.gridy = row;
         add(cmbType2, c);
 
@@ -109,7 +148,7 @@ public class MainFrame extends JFrame {
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
         c.weighty = 1.0;
-        c.gridwidth = 2;
+        c.gridwidth = colW;
         c.gridx = 0;
         c.gridy = row;
         add(txtText1, c);
@@ -118,8 +157,8 @@ public class MainFrame extends JFrame {
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
         c.weighty = 1.0;
-        c.gridwidth = 2;
-        c.gridx = 2;
+        c.gridwidth = colW;
+        c.gridx = colW;
         c.gridy = row;
         add(txtText2, c);
 
@@ -130,7 +169,7 @@ public class MainFrame extends JFrame {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1.0;
         c.weighty = 0.0;
-        c.gridwidth = 4;
+        c.gridwidth = colW * 2;
         c.gridx = 0;
         c.gridy = row;
         add(btnStart, c);
@@ -148,11 +187,11 @@ public class MainFrame extends JFrame {
                 return;
 
             if (e.getSource() == btnFile1) {
-                txtFile1.setText(file.getName());
+                txtFile1.setText(file.getAbsolutePath());
                 txtText1.setText(readFile(file));
             }
             else if (e.getSource() == btnFile2) {
-                txtFile2.setText(file.getName());
+                txtFile2.setText(file.getAbsolutePath());
                 txtText2.setText(readFile(file));
             }
         }
