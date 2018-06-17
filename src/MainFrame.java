@@ -7,21 +7,24 @@ import java.io.*;
 import java.util.ArrayList;
 
 public class MainFrame extends JFrame {
-    private JTextField txtFile1;
-    private JButton    btnFile1;
-    private JTextField txtFile2;
-    private JButton    btnFile2;
-    private JComboBox<Languages> cmbType1;
-    private JComboBox<Languages> cmbType2;
-    private TextArea txtText1;
-    private TextArea txtText2;
-    private JButton  btnStart;
+    private JTextField          txtFile1;
+    private JButton             btnFile1;
+    private JTextField          txtFile2;
+    private JButton             btnFile2;
+    private JComboBox<Language> cmbType1;
+    private JComboBox<Language> cmbType2;
+    private TextArea            txtText1;
+    private TextArea            txtText2;
+    private JButton             btnStart;
 
     private final JFileChooser dialog = new JFileChooser();
 
     // class of templates
 
-    String[][] keywords = new String[][] {
+    Token[][] tokens;
+    int tRow, tNum;
+
+    private String[][] keywords = new String[][] {
             { // Java
                 "abstract", "assert", "boolean", "break", "byte", "case", "catch",
                 "char", "class", "const", "continue", "default", "do", "double",
@@ -54,6 +57,40 @@ public class MainFrame extends JFrame {
             }
     };
 
+    private String[][] commentSimple = {
+            { // Java
+                "//"
+            },
+            { // Visual Basic for Applications
+                "'"
+            }
+    };
+
+    private String[][] commentMultiline = {
+            { // Java
+                "/*", "*/"
+            },
+            { // Visual Basic for Applications
+            }
+    };
+
+    private String[] charsets = new String[] {
+            "",
+            " \n\t\r", // spaces
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_", // names
+            "0123456789", // digits
+            "=+-*/\\%><!&|^", // operators
+            "()[]{}", // brackets
+            ";:,.", // delimiters
+            "'", // quote
+            "\"", // double quote
+            ""
+    };
+
+    // state machine
+
+    private State state = State.Nothing;
+
     // this class
 
     public static void main(String[] args) {
@@ -66,9 +103,9 @@ public class MainFrame extends JFrame {
     private MainFrame() {
         super("Remitter");
 
-        Languages[] codeTypes = new Languages[] {
-                Languages.Java,
-                Languages.VBA
+        Language[] codeTypes = new Language[] {
+                Language.Java,
+                Language.VBA
         };
 
         setLayout(new GridBagLayout());
@@ -115,10 +152,10 @@ public class MainFrame extends JFrame {
         cmbType1 = new JComboBox<>(codeTypes);
         cmbType1.setSelectedIndex(0);
         cmbType1.addActionListener((ActionEvent e) -> {
-            if (cmbType1.getSelectedItem() == Languages.Java)
-                cmbType2.setSelectedItem(Languages.VBA);
+            if (cmbType1.getSelectedItem() == Language.Java)
+                cmbType2.setSelectedItem(Language.VBA);
             else
-                cmbType2.setSelectedItem(Languages.Java);
+                cmbType2.setSelectedItem(Language.Java);
         });
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
@@ -130,10 +167,10 @@ public class MainFrame extends JFrame {
         cmbType2 = new JComboBox<>(codeTypes);
         cmbType2.setSelectedIndex(1);
         cmbType2.addActionListener((ActionEvent e) -> {
-            if (cmbType2.getSelectedItem() == Languages.Java)
-                cmbType1.setSelectedItem(Languages.VBA);
+            if (cmbType2.getSelectedItem() == Language.Java)
+                cmbType1.setSelectedItem(Language.VBA);
             else
-                cmbType1.setSelectedItem(Languages.Java);
+                cmbType1.setSelectedItem(Language.Java);
         });
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 0.5;
@@ -226,6 +263,203 @@ public class MainFrame extends JFrame {
         if (txtText1.getText().length() == 0)
             JOptionPane.showMessageDialog(txtText1, "Nothing to do!", "Error", JOptionPane.ERROR_MESSAGE);
 
-        // TODO: translate
+        String[] lines = txtText1.getText().split("\n");
+
+        int l = lines.length;
+
+        Language l1 = (Language)cmbType1.getSelectedItem();
+        Language l2 = (Language)cmbType2.getSelectedItem();
+
+        if (l1 == null || l2 == null)
+            return;
+
+        tokens = new Token[l][];
+        state  = State.Nothing;
+
+        StringBuilder builder = new StringBuilder();
+
+        int index = l2.ordinal();
+
+        boolean isSimpleComment    = (commentSimple[index].length > 0);
+        boolean isMultilineComment = (commentMultiline[index].length > 0);
+
+        for (tRow = 0; tRow < lines.length; tRow++) {
+            tokens[tRow] = getElems(lines[tRow], l1);
+
+            if (tRow > 0)
+                builder.append("\n");
+
+            for (int i = 0; i < tokens[tRow].length; i++) {
+                Token t = tokens[tRow][i];
+
+                // comments
+
+                if (t.type == State.Comment) {
+                    if (isSimpleComment) {
+                        builder.append(commentSimple[index][0]);
+                        builder.append(t.text);
+                    }
+                    else if (isMultilineComment) {
+                        builder.append(commentMultiline[index][0]);
+                        builder.append(t.text);
+                        builder.append(commentMultiline[index][1]);
+                    }
+                }
+                else if (t.type == State.Comment_Start) {
+                    if (isMultilineComment) {
+                        boolean isFirst = true;
+
+                        lookingForTokens:
+                        for (int p1 = tRow - 1; p1 >= 0; p1--) {
+                            Token[] array = tokens[p1];
+
+                            for (int p2 = array.length - 1; p2 >= 0; p2--) {
+                                Token tmp = array[p2];
+
+                                isFirst = (tmp.type != State.Comment_Start);
+                                break lookingForTokens;
+                            }
+                        }
+
+                        if (isFirst)
+                            builder.append(commentMultiline[index][0]);
+                        builder.append(t.text);
+                    }
+                    else if (isSimpleComment) {
+                        builder.append(commentSimple[index][0]);
+                        builder.append(t.text);
+                    }
+                }
+                else if (t.type == State.Comment_End) {
+                    if (isMultilineComment) {
+                        builder.append(t.text);
+                        builder.append(commentMultiline[index][1]);
+                    }
+                    else if (isSimpleComment) {
+                        builder.append(commentSimple[index][0]);
+                        builder.append(t.text);
+                    }
+                }
+            }
+        }
+
+        txtText2.setText(builder.toString());
+    }
+
+    private Token[] getElems(String str, Language lang) {
+        ArrayList<Token> list = new ArrayList<>();
+
+        // TODO: calculating level
+
+        int index = lang.ordinal();
+
+        lookingForString:
+        for (int i = 0; i < str.length(); i++) {
+            char ch = str.charAt(i);
+
+            // comments
+
+            int j2 = -1;
+
+            if (state == State.Nothing) {
+                for (int j = 0; j < commentSimple[index].length; j++) {
+                    String cSimple = commentSimple[index][j];
+
+                    boolean equal = true;
+                    int     len   = Math.min(str.length() - i, cSimple.length());
+
+                    for (int p = 0; p < len; p++) {
+                        ch = str.charAt(i + p);
+
+                        if (ch != cSimple.charAt(p))
+                            equal = false;
+                    }
+
+                    if (equal) {
+                        String s = str.substring(i + cSimple.length(), str.length());
+                        list.add(new Token(State.Comment, j, 0, s));
+
+                        state = State.Nothing;
+
+                        i = str.length();
+                        continue lookingForString;
+                    }
+                }
+
+                for (int j = 0; j < commentMultiline[index].length; j += 2) {
+                    String cMultiline1 = commentMultiline[index][j];
+
+                    if (state == State.Nothing) {
+                        boolean equal = true;
+                        int     len   = Math.min(str.length() - i, cMultiline1.length());
+
+                        for (int p = 0; p < len; p++) {
+                            ch = str.charAt(i + p);
+
+                            if (ch != cMultiline1.charAt(p))
+                                equal = false;
+                        }
+
+                        if (equal) {
+                            state = State.Comment_Start;
+
+                            str = str.substring(i + cMultiline1.length(), str.length());
+
+                            if (str.isEmpty()) {
+                                list.add(new Token(State.Comment_Start, j, 0, str));
+
+                                continue lookingForString;
+                            }
+                            else {
+                                j2 = j;
+
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (state == State.Comment_Start) {
+                int j = j2;
+
+                if (j == -1) {
+                    lookingForTokens:
+                    for (int p1 = tRow - 1; p1 >= 0; p1--) {
+                        Token[] array = tokens[p1];
+
+                        for (int p2 = array.length - 1; p2 >= 0; p2--) {
+                            Token tmp = array[p2];
+
+                            j = tmp.index;
+                            break lookingForTokens;
+                        }
+                    }
+
+                    if (j == -1)
+                        throw new Error("Unknown symbols in " + ((Integer) i).toString());
+                }
+
+                String cMultiline2 = commentMultiline[index][j + 1];
+
+                int p = str.indexOf(cMultiline2);
+
+                if (p == -1) {
+                    list.add(new Token(State.Comment_Start, j, 0, str));
+
+                    i = str.length();
+                    continue lookingForString;
+                }
+                else {
+                    String s = str.substring(0, p);
+
+                    list.add(new Token(State.Comment_End, j, 0, s));
+
+                    i = p + cMultiline2.length() - 1; // this -1 is because 'for'
+                }
+            }
+        }
+
+        return list.toArray(new Token[0]);
     }
 }

@@ -1,6 +1,6 @@
 package Classes;
 
-public enum Languages {
+public enum Language {
     Java,
     VBA;
 
